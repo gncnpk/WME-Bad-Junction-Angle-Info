@@ -3,7 +3,7 @@
 // @description   Shows "Bad Angle Infos" of all Junctions in the editing area
 // @include       /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor.*$
 // @require       https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
-// @version       1.9.0
+// @version       1.9.1
 // @grant         none
 // @namespace     https://wms.kbox.at/
 // @copyright     2021 Gerhard; 2018 seb-d59, 2016 Michael Wikberg <waze@wikberg.fi>
@@ -50,16 +50,60 @@ function run_aja() {
     /*
      * First some variable and enumeration definitions
      */
-    var junctionangle_version = "1.2.5";
+    var junctionangle_version = "1.9.1";
     var name = "Bad Junction Angle Info";
+    const AJA_UPDATE_NOTES = `<b>NEW:</b><br>
+- Options to check for TIOs and Restrictions<br><br>
+<b>FIXES:</b><br>
+- <br><br>`;
+
     var junctionangle_debug = 0; //0: no output, 1: basic info, 2: debug 3: verbose debug, 4: insane debug
     var aja_last_restart = 0;
     var aja_roundabout_points = [];
     var aja_options = {};
     var aja_mapLayer;
-    var scriptenabled = true;
+    //    var scriptenabled = true;
     var pointSize = 12;
     var decimals = 2;
+    var AJASettings = {};
+
+    var aja_vehicle_types = {
+        TRUCK: 1,
+        PUBLIC: 2,
+        TAXI: 4,
+        BUS: 8,
+        HOV2: 16,
+        HOV3: 32,
+        RV: 64,
+        TOWING: 128,
+        MOTORBIKE: 256,
+        PRIVATE: 512,
+        HAZ: 1024
+    };
+
+    const css = [
+        '.aja-wrapper {position:relative;width:100%;font-size:12px;font-family:"Rubik", "Boing-light", sans-serif;user-select:none;}',
+        '.aja-section-wrapper {display:block;width:100%;padding:4px;}',
+        '.aja-section-wrapper.border {border-bottom:1px solid grey;margin-bottom:5px;}',
+        '.aja-header {font-weight:bold;}',
+        '.aja-option-container {padding:3px;}',
+        '.aja-option-container.no-display {display:none;}',
+        '.aja-option-container.sub {margin-left:20px;}',
+        'input[type="checkbox"].aja-checkbox {display:inline-block;position:relative;top:3px;vertical-align:top;margin:0;}',
+        'input[type="color"].aja-color-input {display:inline-block;position:relative;width:20px;padding:0px 1px;border:0px;vertical-align:top;cursor:pointer;}',
+        'input[type="color"].aja-color-input:focus {outline-width:0;}',
+        'label.aja-label {display:inline-block;position:relative;max-width:80%;vertical-align:top;font-weight:normal;padding-left:5px;word-wrap:break-word;}',
+        '.group-title.toolbar-top-level-item-title.rsa:hover {cursor:pointer;}'
+    ].join(' ');
+
+    const TRANSLATIONS = {
+        default: {
+            scriptTitle: 'Bad Junction Angle Info',
+            scriptenabled: 'Script enabled',
+            check: 'Check for TIOs and Restrictions'
+        }
+
+    };
 
     /*
      * Main logic functions
@@ -83,6 +127,44 @@ function run_aja() {
 
         window.W.map.getOLMap().events.register("zoomend", null, aja_calculate);
         window.W.map.getOLMap().events.register("move", null, aja_calculate);
+
+
+
+
+
+        const $section = $('<div>');
+        // HTML for UI tab
+        $section.html([
+            `<div class='aja-wrapper' id='aja-tab-wrapper'>
+               <div style='margin-bottom:5px;border-bottom:1px solid black;'>
+                  <span style='font-weight:bold;'>
+                        <a href='https://www.waze.com/forum/viewtopic.php?t=334486' target='_blank' style='text-decoration:none;'>${name}</a>
+                  </span> - v${junctionangle_version}
+               </div>
+               <div class="aja-option-container">
+                   <input type=checkbox class='aja-checkbox' id='aja-scriptenabled' />
+                   <label class='aja-label' for='aja-enableScript'><span id='aja-text-enableScript'>${TRANSLATIONS.default.scriptenabled}</span></label>
+                </div>
+                <div class='aja-option-container'>
+                   <input type=checkbox class='aja-checkbox' id='aja-check' />
+                   <label class='aja-label' for='aja-CeckTIOs'><span id='aja-text-Check'>${TRANSLATIONS.default.check}</span></label>
+                </div>
+            </div>`
+        ].join(' '));
+        // Attach HTML for tab to webpage
+        //    UpdateObj = require('Waze/Action/UpdateObject');
+
+        // Script is initialized and the highlighting layer is created
+        new WazeWrap.Interface.Tab('BJAI', $section.html(), initializeSettings);
+
+        WazeWrap.Interface.ShowScriptUpdate(name, junctionangle_version, AJA_UPDATE_NOTES, 'https://greasyfork.org/en/scripts/386773-wme-locksmith', 'https://www.waze.com/forum/viewtopic.php?f=819&t=285583');
+
+
+        async function initializeSettings() {
+            await loadSettings();
+            setEleStatus();
+            $(`<style type="text/css">${css}</style>`).appendTo('head');
+        }
 
         //Add support for translations. Default (and fallback) is "en".
         //Note, don't make typos in "acceleratorName", as it has to match the layer name (with whitespace removed)
@@ -119,6 +201,15 @@ function run_aja() {
 
         WazeWrap.Interface.AddLayerCheckbox("display", "Bad Junction Angle Info", true, LayerToggled);
 
+        $('.aja-checkbox').change(function () {
+            let settingName = $(this)[0].id.substr(4);
+            AJASettings[settingName] = this.checked;
+
+            saveSettings();
+            aja_mapLayer.setVisibility(AJASettings.scriptenabled);
+            aja_calculate();
+        });
+
         aja_apply();
 
         // MTE mode event
@@ -132,7 +223,8 @@ function run_aja() {
 
     function LayerToggled(checked){
         aja_mapLayer.setVisibility(checked);
-        scriptenabled = checked;
+        AJASettings.scriptenabled = checked;
+        setChecked('aja-scriptenabled', AJASettings.scriptenabled);
     }
 
     function findLayer(partOf_id){
@@ -176,7 +268,7 @@ function run_aja() {
         aja_mapLayer.destroyFeatures();
 
         testLayerZIndex();
-        if (!scriptenabled) return;
+        if (!AJASettings.scriptenabled) return;
 
         _.each(W.model.segments.getObjectArray(), s => {
             if(![5, 10, 16, 18, 19].includes(s.attributes.roadType)){
@@ -337,7 +429,22 @@ function run_aja() {
                             node.geometry.x + (aja_label_distance * 1.25 * Math.cos((ha * Math.PI) / 180)),
                             node.geometry.y + (aja_label_distance * 1.25 * Math.sin((ha * Math.PI) / 180))
                         );
-                        aja_draw_marker(point, node, aja_label_distance, a, ha);
+                        // Respect Trunrestrictons and TIOs
+                        var s1 = getByID(window.W.model.segments,angles[iii][1])
+                        var s2 = getByID(window.W.model.segments,angles[(jjj) % angles.length][1])
+                        if (AJASettings.check) {
+                            if (aja_is_turn_allowed(s1, node, s2)) {
+                                var WazeModelGraphTurnData = window.require("Waze/Model/Graph/TurnData");
+                                var turn = new WazeModelGraphTurnData();
+                                turn = window.W.model.getTurnGraph().getTurnThroughNode(node, s1, s2);
+                                var opcode = turn.getTurnData().getInstructionOpcode();
+                                if(!opcode) {
+                                    aja_draw_marker(point, node, aja_label_distance, a, ha);
+                                }
+                            }
+                        } else {
+                            aja_draw_marker(point, node, aja_label_distance, a, ha);
+                        }
                     }
                 }
             }
@@ -539,6 +646,162 @@ function run_aja() {
             (parseInt(decimals) > 0 ? 4 * parseInt(decimals) : 0),
             fontSize: "10px"
         });
+    }
+
+    function aja_is_turn_allowed(s_from, via_node, s_to) {
+        aja_log("Allow from " + s_from.attributes.id +
+                " to " + s_to.attributes.id +
+                " via " + via_node.attributes.id + "? " +
+                via_node.isTurnAllowedBySegDirections(s_from, s_to) + " | " + s_from.isTurnAllowed(s_to, via_node), 2);
+
+        //Is there a driving direction restriction?
+        if(!via_node.isTurnAllowedBySegDirections(s_from, s_to) || !via_node.isTurnAllowedBySegDirections(s_to, s_from)) {
+            aja_log("Driving direction restriction applies", 3);
+            return false;
+        }
+
+        //Is turn allowed by other means (e.g. turn restrictions)?
+        if(!s_from.isTurnAllowed(s_to, via_node) || !s_to.isTurnAllowed(s_from, via_node)) {
+            aja_log("Other restriction applies", 3);
+            return false;
+        }
+
+        if(s_to.attributes.fromNodeID === via_node.attributes.id) {
+            aja_log("FWD direction",3);
+            return aja_is_car_allowed_by_restrictions(s_to.attributes.fwdRestrictions);
+        } else {
+            aja_log("REV direction",3);
+            return aja_is_car_allowed_by_restrictions(s_to.attributes.revRestrictions);
+        }
+    }
+
+    function aja_is_car_allowed_by_restrictions(restrictions) {
+        aja_log("Checking restrictions for cars", 2);
+        if(typeof restrictions === 'undefined' || restrictions == null || restrictions.length === 0) {
+            aja_log("No car type restrictions to check...", 3);
+            return true;
+        }
+        aja_log(restrictions, 3);
+
+        return !restrictions.some(function(element) {
+            /*jshint bitwise: false*/
+            aja_log("Checking restriction " + element, 3);
+            //noinspection JSBitwiseOperatorUsage
+            var ret = element.allDay &&				//All day restriction
+                element.days === 127 &&				//Every week day
+                ( element.vehicleTypes === -1 ||	//All vehicle types
+                 element.vehicleTypes & aja_vehicle_types.PRIVATE //or at least private cars
+                );
+            if (ret) {
+                aja_log("There is an all-day-all-week restriction", 3);
+                var fromDate = Date.parse(element.fromDate);
+                var toDate = Date.parse(element.toDate);
+                aja_log("From: " + fromDate + ", to: " + toDate + ". " + ret, 3);
+                if(isNaN(fromDate && isNaN(toDate))) {
+                    aja_log("No start nor end date defined");
+                    return false;
+                }
+                var fRes, tRes;
+                if(!isNaN(fromDate) && new Date() > fromDate) {
+                    aja_log("From date is in the past", 3);
+                    fRes = 2;
+                } else if(isNaN(fromDate)) {
+                    aja_log("From date is invalid/not set", 3);
+                    fRes = 1;
+                } else {
+                    aja_log("From date is in the future: " + fromDate, 3);
+                    fRes = 0;
+                }
+                if(!isNaN(toDate) && new Date() < toDate) {
+                    aja_log("To date is in the future", 3);
+                    tRes = 2;
+                } else if(isNaN(toDate)) {
+                    aja_log("To date is invalid/not set", 3);
+                    tRes = 1;
+                } else {
+                    aja_log("To date is in the past: " + toDate, 3);
+                    tRes = 0;
+                }
+                // Car allowed unless
+                // - toDate is in the future and fromDate is unset or in the past
+                // - fromDate is in the past and toDate is unset in the future
+                // Hope I got this right ;)
+                return (fRes <= 1 && tRes <= 1);
+            }
+            return ret;
+        });
+    }
+
+    async function loadSettings() {
+        const localSettings = $.parseJSON(localStorage.getItem('AJA_Settings'));
+        console.log('AJA Settings loaded');
+        // Attempt connection to WazeWrap setting server to retrieve settings
+        const serverSettings = await WazeWrap.Remote.RetrieveSettings('AJA_Settings');
+        if (!serverSettings) console.log('AJA: Error communicating with WW settings server');
+        // Default checkbox settings
+        const defaultsettings = {
+            lastSaveAction: 0,
+            scriptenabled: true,
+            check: false
+        };
+
+        AJASettings = $.extend({}, defaultsettings, localSettings);
+        if (serverSettings && serverSettings.lastSaveAction > AJASettings.lastSaveAction) {
+            $.extend(AJASettings, serverSettings);
+            // console.log('AJA: server settings used');
+        } else {
+            // console.log('AJA: local settings used');
+        }
+
+        // If there is no value set in any of the stored settings then use the default
+        Object.keys(defaultsettings).forEach((funcProp) => {
+            if (!AJASettings.hasOwnProperty(funcProp)) {
+                AJASettings[funcProp] = defaultsettings[funcProp];
+            }
+        });
+    }
+
+    async function saveSettings() {
+        const {
+            lastSaveAction,
+            scriptenabled,
+            check
+        } = AJASettings;
+
+        const localSettings = {
+            lastSaveAction: Date.now(),
+            scriptenabled,
+            check
+        };
+
+        // Required for the instant update of changes to the keyboard shortcuts on the UI
+        AJASettings = localSettings;
+
+        if (localStorage) {
+            localStorage.setItem('AJA_Settings', JSON.stringify(localSettings));
+        }
+        const serverSave = await WazeWrap.Remote.SaveSettings('AJA_Settings', localSettings);
+
+        if (serverSave === null) {
+            console.warn('AJA: User PIN not set in WazeWrap tab');
+        } else {
+            if (serverSave === false) {
+                console.error('AJA: Unable to save settings to server');
+            }
+        }
+        if (serverSave === true) {
+            console.log('AJA: Settings saved');
+        }
+    }
+
+    // Set user options
+    function setEleStatus() {
+        setChecked('aja-scriptenabled', AJASettings.scriptenabled);
+        setChecked('aja-check', AJASettings.check);
+    }
+
+    function setChecked(ele, status) {
+        $(`#${ele}`).prop('checked', status);
     }
 
     /*
