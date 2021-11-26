@@ -3,7 +3,7 @@
 // @description   Shows "Bad Angle Infos" of all Junctions in the editing area
 // @include       /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor.*$
 // @require       https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
-// @version       1.9.1
+// @version       1.9.2
 // @grant         none
 // @namespace     https://wms.kbox.at/
 // @copyright     2021 Gerhard; 2018 seb-d59, 2016 Michael Wikberg <waze@wikberg.fi>
@@ -50,12 +50,12 @@ function run_aja() {
     /*
      * First some variable and enumeration definitions
      */
-    var junctionangle_version = "1.9.1";
+    var junctionangle_version = "1.9.2";
     var name = "Bad Junction Angle Info";
     const AJA_UPDATE_NOTES = `<b>NEW:</b><br>
-- Options to check for TIOs and Restrictions<br><br>
+- <br><br>
 <b>FIXES:</b><br>
-- <br><br>`;
+- RR Junction problem solved<br><br>`;
 
     var junctionangle_debug = 0; //0: no output, 1: basic info, 2: debug 3: verbose debug, 4: insane debug
     var aja_last_restart = 0;
@@ -351,13 +351,6 @@ function run_aja() {
             aja_log(aja_current_node_segments.length,2);
             aja_log(node, 2);
 
-            // Remove non driveable Segments
-            for( var ii = 0; ii < aja_current_node_segments.length; ii++){
-                if([5, 10, 16, 18, 19].includes(window.W.model.segments.objects[aja_current_node_segments[ii]].attributes.roadType)){
-                    aja_current_node_segments.splice(ii, 1);
-                    ii--;
-                }
-            }
             aja_log(aja_current_node_segments.length,2);
 
             //ignore of we have less than 2 segments
@@ -385,16 +378,22 @@ function run_aja() {
                     }
                     restart = true;
                 }
-
                 a = aja_getAngle(aja_nodes[i], s);
                 aja_log("Segment " + nodeSegment + " angle is " + a, 2);
-                angles[j] = [a, nodeSegment, s == null ? false : true];
+                angles[j] = [a, nodeSegment, s == null ? false : true, s.attributes.roadType];
                 if (s == null ? false : true) {
                     aja_selected_segments_count++;
                 }
             });
 
             if(restart) { return; }
+
+            for( var ii = 0; ii < angles.length; ii++){
+                if([5, 10, 16, 18, 19].includes(angles[ii][3])){
+                    angles.splice(ii, 1);
+                    ii--;
+                }
+            }
 
             aja_log(angles, 2);
 
@@ -410,7 +409,6 @@ function run_aja() {
 
             for (var iii = 0; iii < angles.length - 1; iii++) {
                 for (var jjj = iii + 1; jjj < angles.length; jjj++) {
-
                     a = (360 + (angles[(jjj) % angles.length][0] - angles[iii][0])) % 360;
                     if (a > 180) {
                         a = 360 - a;
