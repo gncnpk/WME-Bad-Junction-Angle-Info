@@ -3,7 +3,7 @@
 // @description   Shows "Bad Angle Infos" of all Junctions in the editing area
 // @include       /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor.*$
 // @require       https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
-// @version       1.9.2
+// @version       1.9.3
 // @grant         none
 // @namespace     https://wms.kbox.at/
 // @copyright     2021 Gerhard; 2018 seb-d59, 2016 Michael Wikberg <waze@wikberg.fi>
@@ -50,12 +50,12 @@ function run_aja() {
     /*
      * First some variable and enumeration definitions
      */
-    var junctionangle_version = "1.9.2";
+    var junctionangle_version = "1.9.3";
     var name = "Bad Junction Angle Info";
     const AJA_UPDATE_NOTES = `<b>NEW:</b><br>
 - <br><br>
 <b>FIXES:</b><br>
-- RR Junction problem solved<br><br>`;
+- Restriction detection issue solved<br><br>`;
 
     var junctionangle_debug = 0; //0: no output, 1: basic info, 2: debug 3: verbose debug, 4: insane debug
     var aja_last_restart = 0;
@@ -66,6 +66,7 @@ function run_aja() {
     var pointSize = 12;
     var decimals = 2;
     var AJASettings = {};
+    var country;
 
     var aja_vehicle_types = {
         TRUCK: 1,
@@ -157,7 +158,7 @@ function run_aja() {
         // Script is initialized and the highlighting layer is created
         new WazeWrap.Interface.Tab('BJAI', $section.html(), initializeSettings);
 
-        WazeWrap.Interface.ShowScriptUpdate(name, junctionangle_version, AJA_UPDATE_NOTES, 'https://greasyfork.org/en/scripts/386773-wme-locksmith', 'https://www.waze.com/forum/viewtopic.php?f=819&t=285583');
+        WazeWrap.Interface.ShowScriptUpdate(name, junctionangle_version, AJA_UPDATE_NOTES, 'https://greasyfork.org/en/scripts/434562-wme-bad-junction-angle-info', 'https://www.waze.com/forum/viewtopic.php?t=334486');
 
 
         async function initializeSettings() {
@@ -217,7 +218,6 @@ function run_aja() {
         W.prefs.on('change:isImperial', function(){
             aja_apply();
         });
-
         aja_calculate();
     }
 
@@ -345,6 +345,7 @@ function run_aja() {
                 aja_log(window.W.model.nodes, 3);
                 continue;
             }
+
             //check connected segments
             var aja_current_node_segments = node.attributes.segIDs;
             aja_log("Alle aja_current_node_segments",2);
@@ -431,14 +432,25 @@ function run_aja() {
                         var s1 = getByID(window.W.model.segments,angles[iii][1])
                         var s2 = getByID(window.W.model.segments,angles[(jjj) % angles.length][1])
                         if (AJASettings.check) {
+                            var draw_marker = false;
                             if (aja_is_turn_allowed(s1, node, s2)) {
                                 var WazeModelGraphTurnData = window.require("Waze/Model/Graph/TurnData");
                                 var turn = new WazeModelGraphTurnData();
                                 turn = window.W.model.getTurnGraph().getTurnThroughNode(node, s1, s2);
                                 var opcode = turn.getTurnData().getInstructionOpcode();
                                 if(!opcode) {
-                                    aja_draw_marker(point, node, aja_label_distance, a, ha);
+                                    draw_marker = true;
                                 }
+                            }
+                            if (aja_is_turn_allowed(s2, node, s1)) {
+                                turn = window.W.model.getTurnGraph().getTurnThroughNode(node, s2, s1);
+                                opcode = turn.getTurnData().getInstructionOpcode();
+                                if(!opcode) {
+                                    draw_marker = true;
+                                }
+                            }
+                            if (draw_marker) {
+                                aja_draw_marker(point, node, aja_label_distance, a, ha);
                             }
                         } else {
                             aja_draw_marker(point, node, aja_label_distance, a, ha);
@@ -653,13 +665,13 @@ function run_aja() {
                 via_node.isTurnAllowedBySegDirections(s_from, s_to) + " | " + s_from.isTurnAllowed(s_to, via_node), 2);
 
         //Is there a driving direction restriction?
-        if(!via_node.isTurnAllowedBySegDirections(s_from, s_to) || !via_node.isTurnAllowedBySegDirections(s_to, s_from)) {
+        if(!via_node.isTurnAllowedBySegDirections(s_from, s_to)) {
             aja_log("Driving direction restriction applies", 3);
             return false;
         }
 
         //Is turn allowed by other means (e.g. turn restrictions)?
-        if(!s_from.isTurnAllowed(s_to, via_node) || !s_to.isTurnAllowed(s_from, via_node)) {
+        if(!s_from.isTurnAllowed(s_to, via_node)) {
             aja_log("Other restriction applies", 3);
             return false;
         }
@@ -795,7 +807,11 @@ function run_aja() {
     // Set user options
     function setEleStatus() {
         setChecked('aja-scriptenabled', AJASettings.scriptenabled);
-        setChecked('aja-check', AJASettings.check);
+        if ( country == 'Austria' ) {
+            $(`#${'aja-check'}`).prop('disabled', true);
+        } else {
+            setChecked('aja-check', AJASettings.check);
+        }
     }
 
     function setChecked(ele, status) {
@@ -821,6 +837,7 @@ function run_aja() {
                 !(document.querySelector('.list-unstyled.togglers .group') === null) &&
                 aja_is_model_ready() &&
                 aja_is_dom_ready() &&
+                checkCountry() &&
                 window.W.loginManager.isLoggedIn()) {
                 setTimeout(function () {
                     junctionangle_init();
@@ -883,6 +900,15 @@ function run_aja() {
         }else if (typeof(obj.getObjectById) == "undefined"){
             return obj.get(id);
         }
+    }
+    function checkCountry() {
+        try {
+            country = W.model.getTopCountry().name;
+        } catch (err) {
+            country = null;
+            // console.log(err);
+        }
+        return country;
     }
 
     aja_bootstrap();
