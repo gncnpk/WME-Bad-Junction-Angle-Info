@@ -3,8 +3,8 @@
 // @description   Shows "Bad Angle Infos" of all Junctions in the editing area
 // @include       /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor.*$
 // @require       https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
-// @version       1.9.3
-// @grant         none
+// @version       1.9.6
+// @grant         GM_addElement
 // @namespace     https://wms.kbox.at/
 // @copyright     2021 Gerhard; 2018 seb-d59, 2016 Michael Wikberg <waze@wikberg.fi>
 // @license       CC-BY-NC-SA
@@ -50,12 +50,10 @@ function run_aja() {
     /*
      * First some variable and enumeration definitions
      */
-    var junctionangle_version = "1.9.3";
+    var junctionangle_version = "1.9.6";
     var name = "Bad Junction Angle Info";
-    const AJA_UPDATE_NOTES = `<b>NEW:</b><br>
-- <br><br>
-<b>FIXES:</b><br>
-- Restriction detection issue solved<br><br>`;
+    const AJA_UPDATE_NOTES = `<b>FIX:</b><br>
+- Update for new WME Version<br>`;
 
     var junctionangle_debug = 0; //0: no output, 1: basic info, 2: debug 3: verbose debug, 4: insane debug
     var aja_last_restart = 0;
@@ -67,6 +65,7 @@ function run_aja() {
     var decimals = 2;
     var AJASettings = {};
     var country;
+    var withRouting = true;
 
     var aja_vehicle_types = {
         TRUCK: 1,
@@ -101,9 +100,9 @@ function run_aja() {
         default: {
             scriptTitle: 'Bad Junction Angle Info',
             scriptenabled: 'Script enabled',
-            check: 'Check for TIOs and Restrictions'
+            check: 'Check for TIOs and Restrictions',
+            skiproundabout: 'Skip Roundabouts'
         }
-
     };
 
     /*
@@ -150,6 +149,10 @@ function run_aja() {
                    <input type=checkbox class='aja-checkbox' id='aja-check' />
                    <label class='aja-label' for='aja-CeckTIOs'><span id='aja-text-Check'>${TRANSLATIONS.default.check}</span></label>
                 </div>
+               <div class='aja-option-container'>
+                 <input type=checkbox class='aja-checkbox' id='aja-skiproundabout' />
+                 <label class='aja-label' for='aja-SkipRoundabout'><span id='aja-text-SkipRoundabout'>${TRANSLATIONS.default.skiproundabout}</span></label>
+               </div>
             </div>`
         ].join(' '));
         // Attach HTML for tab to webpage
@@ -431,8 +434,11 @@ function run_aja() {
                         // Respect Trunrestrictons and TIOs
                         var s1 = getByID(window.W.model.segments,angles[iii][1])
                         var s2 = getByID(window.W.model.segments,angles[(jjj) % angles.length][1])
+
+                        var draw_marker = true;
+
                         if (AJASettings.check) {
-                            var draw_marker = false;
+                            draw_marker = false;
                             if (aja_is_turn_allowed(s1, node, s2)) {
                                 var WazeModelGraphTurnData = window.require("Waze/Model/Graph/TurnData");
                                 var turn = new WazeModelGraphTurnData();
@@ -449,10 +455,21 @@ function run_aja() {
                                     draw_marker = true;
                                 }
                             }
-                            if (draw_marker) {
-                                aja_draw_marker(point, node, aja_label_distance, a, ha);
+                            if (s1.attributes.junctionID || s2.attributes.junctionID) {
+                                draw_marker = false;
                             }
-                        } else {
+                        }
+
+                        if (AJASettings.skiproundabout) {
+                            if(getByID(window.W.model.segments,angles[iii][1]).attributes.junctionID) {
+                                draw_marker = false;
+                            }
+                            if(getByID(window.W.model.segments,angles[(jjj) % angles.length][1]).attributes.junctionID) {
+                                draw_marker = false;
+                            }
+                        }
+
+                        if (draw_marker) {
                             aja_draw_marker(point, node, aja_label_distance, a, ha);
                         }
                     }
@@ -752,7 +769,8 @@ function run_aja() {
         const defaultsettings = {
             lastSaveAction: 0,
             scriptenabled: true,
-            check: false
+            check: false,
+            skiproundabout: false
         };
 
         AJASettings = $.extend({}, defaultsettings, localSettings);
@@ -775,13 +793,15 @@ function run_aja() {
         const {
             lastSaveAction,
             scriptenabled,
-            check
+            check,
+            skiproundabout
         } = AJASettings;
 
         const localSettings = {
             lastSaveAction: Date.now(),
             scriptenabled,
-            check
+            check,
+            skiproundabout
         };
 
         // Required for the instant update of changes to the keyboard shortcuts on the UI
@@ -807,6 +827,7 @@ function run_aja() {
     // Set user options
     function setEleStatus() {
         setChecked('aja-scriptenabled', AJASettings.scriptenabled);
+        setChecked('aja-skiproundabout', AJASettings.skiproundabout);
         if ( country == 'Austria' ) {
             $(`#${'aja-check'}`).prop('disabled', true);
         } else {
@@ -914,10 +935,6 @@ function run_aja() {
     aja_bootstrap();
 }
 
-//Dynamically create, add and run the script in the real page context. We really do need access to many of the objects...
-var DLScript = document.createElement("script");
-DLScript.textContent = '' +
-    run_aja.toString() + ' \n' +
-    'run_aja();';
-DLScript.setAttribute("type", "application/javascript");
-document.body.appendChild(DLScript);
+let run_aja_script = GM_addElement('script', {
+  textContent: "" + run_aja.toString() + " \n" + "run_aja();"
+});
