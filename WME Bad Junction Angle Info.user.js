@@ -1,14 +1,18 @@
 // ==UserScript==
 // @name          WME Bad Junction Angle Info
 // @description   Shows "Bad Angle Infos" of all Junctions in the editing area
-// @include       /^https:\/\/(www|beta)\.waze\.com\/(?!user\/)(.{2,6}\/)?editor.*$
+// @match         https://beta.waze.com/*editor*
+// @match         https://www.waze.com/*editor*
+// @exclude       https://www.waze.com/*user/*editor/*
 // @require       https://greasyfork.org/scripts/24851-wazewrap/code/WazeWrap.js
-// @version       1.9.6
+// @version       1.9.14
 // @grant         GM_addElement
 // @namespace     https://wms.kbox.at/
 // @copyright     2021 Gerhard; 2018 seb-d59, 2016 Michael Wikberg <waze@wikberg.fi>
 // @license       CC-BY-NC-SA
 // @icon          data:image/png;base64,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
+// @downloadURL https://update.greasyfork.org/scripts/434562/WME%20Bad%20Junction%20Angle%20Info.user.js
+// @updateURL https://update.greasyfork.org/scripts/434562/WME%20Bad%20Junction%20Angle%20Info.meta.js
 // ==/UserScript==
 
 /**
@@ -50,10 +54,10 @@ function run_aja() {
     /*
      * First some variable and enumeration definitions
      */
-    var junctionangle_version = "1.9.6";
+    var junctionangle_version = "1.9.13";
     var name = "Bad Junction Angle Info";
     const AJA_UPDATE_NOTES = `<b>FIX:</b><br>
-- Update for new WME Version<br>`;
+- Update for new Beta WME<br>`;
 
     var junctionangle_debug = 0; //0: no output, 1: basic info, 2: debug 3: verbose debug, 4: insane debug
     var aja_last_restart = 0;
@@ -125,8 +129,8 @@ function run_aja() {
             "objectsremoved": aja_calculate
         });
 
-        window.W.map.getOLMap().events.register("zoomend", null, aja_calculate);
-        window.W.map.getOLMap().events.register("move", null, aja_calculate);
+        window.W.map.olMap.events.register("zoomend", null, aja_calculate);
+        window.W.map.olMap.events.register("move", null, aja_calculate);
 
 
 
@@ -159,7 +163,7 @@ function run_aja() {
         //    UpdateObj = require('Waze/Action/UpdateObject');
 
         // Script is initialized and the highlighting layer is created
-        new WazeWrap.Interface.Tab('BJAI', $section.html(), initializeSettings);
+        WazeWrap.Interface.Tab('BJAI', $section.html(), initializeSettings, 'BJAI');
 
         WazeWrap.Interface.ShowScriptUpdate(name, junctionangle_version, AJA_UPDATE_NOTES, 'https://greasyfork.org/en/scripts/434562-wme-bad-junction-angle-info', 'https://www.waze.com/forum/viewtopic.php?t=334486');
 
@@ -205,14 +209,18 @@ function run_aja() {
 
         WazeWrap.Interface.AddLayerCheckbox("display", "Bad Junction Angle Info", true, LayerToggled);
 
-        $('.aja-checkbox').change(function () {
-            let settingName = $(this)[0].id.substr(4);
-            AJASettings[settingName] = this.checked;
+        document.addEventListener('change', (e) => {
+  // make sure it was one of our checkboxes
+  if (!e.target.matches('.aja-checkbox')) return;
 
-            saveSettings();
-            aja_mapLayer.setVisibility(AJASettings.scriptenabled);
-            aja_calculate();
-        });
+  // grab the setting name from the id (strip off "aja-")
+  const settingName = e.target.id.slice(4);
+  AJASettings[settingName] = e.target.checked;
+
+  saveSettings();
+  aja_mapLayer.setVisibility(AJASettings.scriptenabled);
+  aja_calculate();
+});
 
         aja_apply();
 
@@ -292,7 +300,7 @@ function run_aja() {
         /*
          * Define a base distance to markers, depending on the zoom level
          */
-        switch (window.W.map.getOLMap().zoom) {
+        switch (window.W.map.olMap.zoom) {
             case 22: //10:
                 aja_label_distance = 2.8;
                 break;
@@ -324,12 +332,12 @@ function run_aja() {
                 aja_label_distance = 400;
                 break;
             default:
-                aja_log("Unsupported zoom level: " + window.W.map.getOLMap().zoom + "!", 2);
+                aja_log("Unsupported zoom level: " + window.W.map.olMap.zoom + "!", 2);
         }
 
         aja_label_distance *= (1 + (0.2 * parseInt(decimals)));
 
-        aja_log("zoom: " + window.W.map.getOLMap().zoom + " -> distance: " + aja_label_distance, 2);
+        aja_log("zoom: " + window.W.map.olMap.zoom + " -> distance: " + aja_label_distance, 2);
 
         //Start looping through selected nodes
         for (var i = 0; i < aja_nodes.length; i++) {
@@ -428,8 +436,8 @@ function run_aja() {
                     //                    if (a < 10.26 || (a > 133 && a < 136 )) {
                     if ((a > 133 && a < 136 )) {
                         point = new window.OpenLayers.Geometry.Point(
-                            node.geometry.x + (aja_label_distance * 1.25 * Math.cos((ha * Math.PI) / 180)),
-                            node.geometry.y + (aja_label_distance * 1.25 * Math.sin((ha * Math.PI) / 180))
+                            node.getOLGeometry().x + (aja_label_distance * 1.25 * Math.cos((ha * Math.PI) / 180)),
+                            node.getOLGeometry().y + (aja_label_distance * 1.25 * Math.sin((ha * Math.PI) / 180))
                         );
                         // Respect Trunrestrictons and TIOs
                         var s1 = getByID(window.W.model.segments,angles[iii][1])
@@ -445,14 +453,13 @@ function run_aja() {
                                 turn = window.W.model.getTurnGraph().getTurnThroughNode(node, s1, s2);
                                 var opcode = turn.getTurnData().getInstructionOpcode();
                                 if(!opcode) {
-                                    draw_marker = true;
-                                }
-                            }
-                            if (aja_is_turn_allowed(s2, node, s1)) {
-                                turn = window.W.model.getTurnGraph().getTurnThroughNode(node, s2, s1);
-                                opcode = turn.getTurnData().getInstructionOpcode();
-                                if(!opcode) {
-                                    draw_marker = true;
+                                    if (aja_is_turn_allowed(s2, node, s1)) {
+                                        turn = window.W.model.getTurnGraph().getTurnThroughNode(node, s2, s1);
+                                        opcode = turn.getTurnData().getInstructionOpcode();
+                                        if(!opcode) {
+                                            draw_marker = true;
+                                        }
+                                    }
                                 }
                             }
                             if (s1.attributes.junctionID || s2.attributes.junctionID) {
@@ -501,8 +508,8 @@ function run_aja() {
         //(or maybe something else in the future; like turn restriction arrows or something)
         //FZ69617: Exctract initial label distance from point
         var aja_tmp_distance = Math.abs(ha) % 180 < 45 || Math.abs(ha) % 180 > 135 ?
-            (point.x - node.geometry.x) / (Math.cos((ha * Math.PI) / 180)) :
-        (point.y - node.geometry.y) / (Math.sin((ha * Math.PI) / 180));
+            (point.x - node.getOLGeometry().x) / (Math.cos((ha * Math.PI) / 180)) :
+        (point.y - node.getOLGeometry().y) / (Math.sin((ha * Math.PI) / 180));
         aja_log("Starting distance estimation", 3);
         while(aja_mapLayer.features.some(function(feature){
             if(typeof feature.attributes.aja_type !== 'undefined' && feature.attributes.aja_type !== 'roundaboutOverlay') {
@@ -519,8 +526,8 @@ function run_aja() {
             aja_tmp_distance += aja_label_distance / 4;
             aja_log("setting distance to " + aja_tmp_distance, 2);
             point = new window.OpenLayers.Geometry.Point(
-                node.geometry.x + (aja_tmp_distance * Math.cos((ha * Math.PI) / 180)),
-                node.geometry.y + (aja_tmp_distance * Math.sin((ha * Math.PI) / 180))
+                node.getOLGeometry().x + (aja_tmp_distance * Math.cos((ha * Math.PI) / 180)),
+                node.getOLGeometry().y + (aja_tmp_distance * Math.sin((ha * Math.PI) / 180))
             );
         }
         aja_log("Distance estimation done", 3);
@@ -535,7 +542,7 @@ function run_aja() {
         //Draw a line to the point
         aja_mapLayer.addFeatures([
             new window.OpenLayers.Feature.Vector(
-                new window.OpenLayers.Geometry.LineString([node.geometry, point]),
+                new window.OpenLayers.Geometry.LineString([node.getOLGeometry(), point]),
                 {},
                 {strokeOpacity: 0.9, strokeWidth: 2.2, strokeDashstyle: "solid", strokeColor: "#ff9966"}
             )
@@ -546,19 +553,19 @@ function run_aja() {
     }
 
     function aja_get_first_point(segment) {
-        return segment.geometry.components[0];
+        return segment.getOLGeometry().components[0];
     }
 
     function aja_get_last_point(segment) {
-        return segment.geometry.components[segment.geometry.components.length - 1];
+        return segment.getOLGeometry().components[segment.getOLGeometry().components.length - 1];
     }
 
     function aja_get_second_point(segment) {
-        return segment.geometry.components[1];
+        return segment.getOLGeometry().components[1];
     }
 
     function aja_get_next_to_last_point(segment) {
-        return segment.geometry.components[segment.geometry.components.length - 2];
+        return segment.getOLGeometry().components[segment.getOLGeometry().components.length - 2];
     }
 
     //get the absolute angle for a segment end point
@@ -855,7 +862,7 @@ function run_aja() {
         try {
             //User logged in and WME ready
             if (
-                !(document.querySelector('.list-unstyled.togglers .group') === null) &&
+//                !(document.querySelector('.list-unstyled.togglers .group') === null) &&
                 aja_is_model_ready() &&
                 aja_is_dom_ready() &&
                 checkCountry() &&
@@ -883,7 +890,7 @@ function run_aja() {
             return false;
         } else {
             //return 'undefined' !== typeof window.W.map.events.register &&
-            return 'undefined' !== typeof window.W.map.getOLMap().events.register &&
+            return 'undefined' !== typeof window.W.map.olMap.events.register &&
                 'undefined' !== typeof window.W.selectionManager.events.register &&
                 'undefined' !== typeof window.W.loginManager.events.register;
         }
@@ -924,7 +931,7 @@ function run_aja() {
     }
     function checkCountry() {
         try {
-            country = W.model.getTopCountry().name;
+            country = W.model.getTopCountry().attributes.name;
         } catch (err) {
             country = null;
             // console.log(err);
